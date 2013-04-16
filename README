@@ -1,0 +1,260 @@
+NAME
+    Type::Params - Params::Validate-like parameter validation using
+    Type::Tiny type constraints and coercions
+
+SYNOPSIS
+     use v5.10;
+     use strict;
+     use warnings;
+ 
+     use Type::Params qw( compile );
+     use Types::Standard qw( slurpy Str ArrayRef Num );
+   
+     sub deposit_monies
+     {
+        state $check = compile( Str, Str, slurpy ArrayRef[Num] );
+        my ($sort_code, $account_number, $monies) = $check->(@_);
+    
+        my $account = Local::BankAccount->new($sort_code, $account_number);
+        $account->deposit($_) for @$monies;
+     }
+ 
+     deposit_monies("12-34-56", "11223344", 1.2, 3, 99.99);
+
+DESCRIPTION
+    Type::Params uses Type::Tiny constraints to validate the parameters to a
+    sub. It takes the slightly unorthodox approach of separating validation
+    into two stages:
+
+    1.  Compiling the parameter specification into a coderef; then
+
+    2.  Using the coderef to validate parameters.
+
+    The first stage is slow (it might take a couple of milliseconds), but
+    you only need to do it the first time the sub is called. The second
+    stage is fast; according to my benchmarks faster even than the XS
+    version of Params::Validate.
+
+    If you're using a modern version of Perl, you can use the "state"
+    keyword which was a feature added to Perl in 5.10. If you're stuck on
+    Perl 5.8, the example from the SYNOPSIS could be rewritten as:
+
+     my $deposit_monies_check;
+     sub deposit_monies
+     {
+        $deposit_monies_check ||= compile( Str, Str, slurpy ArrayRef[Num] );
+        my ($sort_code, $account_number, $monies) = $check->(@_);
+    
+        ...;
+     }
+
+    Not quite as neat, but not awful either.
+
+    There's a shortcut reducing it to one step:
+
+     use Type::Params qw( validate );
+ 
+     sub deposit_monies
+     {
+        my ($sort_code, $account_number, $monies) = 
+           validate( \@_, Str, Str, slurpy ArrayRef[Num] );
+    
+        ...;
+     }
+
+    Type::Params has a few tricks up its sleeve to make sure performance
+    doesn't suffer too much with the shortcut, but it's never going to be as
+    fast as the two stage compile/execute.
+
+COOKBOOK
+  Positional Parameters
+       sub nth_root
+       {
+          state $check = compile( Num, Num );
+          my ($x, $n) = $check->(@_);
+      
+          return $x ** (1 / $n);
+       }
+
+  Method Calls
+       use Types::Standard qw( ClassName Object Str Int );
+   
+       # a class method
+       sub new_from_json
+       {
+          state $check = compile( ClassName, Str );
+          my ($class, $json) = $check->(@_);
+      
+          $class->new( from_json($json) );
+       }
+   
+       # an object method
+       sub dump
+       {
+          state $check = compile( Object, Int );
+          my ($self, $limit) = $check->(@_);
+      
+          local $Data::Dumper::Maxdepth = $limit;
+          print Data::Dumper::Dumper($self);
+       }
+   
+       # can be called as either
+       sub run
+       {
+          state $check = compile( Object | ClassName );
+          my ($proto) = $check->(@_);
+      
+          my $self = ref($proto) ? $proto : $default_instance;
+          $self->_run;
+       }
+
+  Optional Parameters
+       use Types::Standard qw( Object Optional Int );
+   
+       sub dump
+       {
+          state $check = compile( Object, Optional[Int] );
+          my ($self, $limit) = $check->(@_);
+          $limit //= 0;
+      
+          local $Data::Dumper::Maxdepth = $limit;
+          print Data::Dumper::Dumper($self);
+       }
+   
+       $obj->dump(1);      # ok
+       $obj->dump();       # ok
+       $obj->dump(undef);  # dies
+
+  Slurpy Parameters
+       use Types::Standard qw( slurpy ClassName HashRef );
+   
+       sub new
+       {
+          state $check = compile( ClassName, slurpy HashRef );
+          my ($class, $ref) = $check->(@_);
+          bless $ref => $class;
+       }
+   
+       __PACKAGE__->new(foo => 1, bar => 2);
+
+    The following types from Types::Standard can be made slurpy: "ArrayRef",
+    "Tuple", "HashRef", "Map", "Dict". Hash-like types will die if an odd
+    number of elements are slurped in.
+
+    A check may only have one slurpy parameter, and it must be the last
+    parameter.
+
+  Named Parameters
+    Just use a slurpy "Dict":
+
+       use Types::Standard qw( slurpy Dict Ref Optional Int );
+   
+       sub dump
+       {
+          state $check = compile(
+             slurpy Dict[
+                var    => Ref,
+                limit  => Optional[Int],
+             ],
+          );
+          my ($arg) = $check->(@_);
+      
+          local $Data::Dumper::Maxdepth = $arg->{limit};
+          print Data::Dumper::Dumper($arg->{var});
+       }
+   
+       dump(var => $foo, limit => 1);   # ok
+       dump(var => $foo);               # ok
+       dump(limit => 1);                # dies
+
+  Mixed Positional and Named Parameters
+       use Types::Standard qw( slurpy Dict Ref Optional Int );
+   
+       sub my_print
+       {
+          state $check = compile(
+             Str,
+             slurpy Dict[
+                colour => Optional[Str],
+                size   => Optional[Int],
+             ],
+          );
+          my ($string, $arg) = $check->(@_);
+       }
+   
+       my_print("Hello World", colour => "blue");
+
+  Coercions
+    Coercions will automatically be applied for *all* type constraints that
+    have a coercion associated.
+
+       use Type::Utils;
+       use Types::Standard qw( Int Num );
+   
+       my $RoundedInt = declare as Int;
+       coerce $RoundedInt, from Num, via q{ int($_) };
+   
+       sub set_age
+       {
+          state $check = compile( Object, $RoundedInt );
+          my ($self, $age) = $check->(@_);
+      
+          $self->{age} = $age;
+       }
+   
+       $obj->set_age(32.5);   # ok; coerced to "32".
+
+    Coercions carry over into structured types such as "ArrayRef"
+    automatically:
+
+       sub delete_articles
+       {
+          state $check = compile( Object, slurpy ArrayRef[$RoundedInt] );
+          my ($db, $articles) = $check->(@_);
+      
+          $db->select_article($_)->delete for @$articles;
+       }
+   
+       # delete articles 1, 2 and 3
+       delete_articles($my_db, 1.1, 2.2, 3.3);
+
+    If type "Foo" has coercions from "Str" and "ArrayRef" and you want to
+    prevent coercion, then use:
+
+       state $check = compile( Foo->no_coercions );
+
+    Or if you just want to prevent coercion from "Str", use:
+
+       state $check = compile( Foo->minus_coercions(Str) );
+
+    Or maybe add an extra coercion:
+
+       state $check = compile(
+          Foo->plus_coercions(Int, q{ Foo->new_from_number($_) }),
+       );
+
+    Note that the coercion is specified as a string of Perl code. This is
+    usually the fastest way to do it, but a coderef is also accepted. Either
+    way, the value to be coerced is $_.
+
+BUGS
+    Please report any bugs to
+    <http://rt.cpan.org/Dist/Display.html?Queue=Type-Params>.
+
+SEE ALSO
+    Type::Tiny, Type::Coercion, Types::Standard.
+
+AUTHOR
+    Toby Inkster <tobyink@cpan.org>.
+
+COPYRIGHT AND LICENCE
+    This software is copyright (c) 2013 by Toby Inkster.
+
+    This is free software; you can redistribute it and/or modify it under
+    the same terms as the Perl 5 programming language system itself.
+
+DISCLAIMER OF WARRANTIES
+    THIS PACKAGE IS PROVIDED "AS IS" AND WITHOUT ANY EXPRESS OR IMPLIED
+    WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
+    MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+
