@@ -27,8 +27,7 @@ dist:project
 		nfo:programmingLanguage "Perl";
 	];
 	cpant:requires    "Eval::Closure"^^cpant:dsWithoutVersion;
-	cpant:requires    "Sub::Exporter::Progressive"^^cpant:dsWithoutVersion;
-	cpant:requires    "Type::Tiny 0.003_01"^^cpant:dsWithVersion;
+	cpant:requires    "Type::Tiny 0.003_04"^^cpant:dsWithVersion;
 	cpant:test_requires "Test::Fatal"^^cpant:dsWithoutVersion;
 	cpant:test_requires "Test::More 0.88"^^cpant:dsWithVersion;
 	cpant:version_from [
@@ -49,6 +48,7 @@ dist:project
 	doap:programming-language "Perl";
 	doap:release      dist:v_0-000_01;
 	doap:release      dist:v_0-000_02;
+	doap:release      dist:v_0-000_03;
 	doap:repository   [
 		a doap:HgRepository;
 		doap:browse <https://bitbucket.org/tobyink/p5-type-params>;
@@ -79,6 +79,21 @@ dist:v_0-000_02
 	dcs:released-by   cpan:tobyink;
 	doap:file-release <http://backpan.cpan.org/authors/id/T/TO/TOBYINK/Type-Params-0.000_02.tar.gz>;
 	doap:revision     "0.000_02"^^xsd:string.
+
+dist:v_0-000_03
+	a                 cpant:DeveloperRelease;
+	a                 doap:Version;
+	dc:identifier     "Type-Params-0.000_03"^^xsd:string;
+	dc:issued         "2013-04-18"^^xsd:date;
+	dcs:changeset     [
+		dcs:item [
+			a dcs:Change;
+			rdfs:label "use Exporter::TypeTiny for exporting functions.";
+		];
+	];
+	dcs:released-by   cpan:tobyink;
+	doap:file-release <http://backpan.cpan.org/authors/id/T/TO/TOBYINK/Type-Params-0.000_03.tar.gz>;
+	doap:revision     "0.000_03"^^xsd:string.
 
 cpan:tobyink
 	a                 foaf:Person;

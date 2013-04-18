@@ -26,12 +26,11 @@ no_index:
     - xt
 requires:
   Eval::Closure: 0
-  Sub::Exporter::Progressive: 0
-  Type::Tiny: 0.003_01
+  Type::Tiny: 0.003_04
   perl: 5.8.1
 resources:
   bugtracker: http://rt.cpan.org/Dist/Display.html?Queue=Type-Params
   homepage: https://metacpan.org/release/Type-Params
   license: http://dev.perl.org/licenses/
   repository: https://bitbucket.org/tobyink/p5-type-params
-version: 0.000_02
+version: 0.000_03
