@@ -6,6 +6,12 @@ Home page:    <https://metacpan.org/release/Type-Params>
 Bug tracker:  <http://rt.cpan.org/Dist/Display.html?Queue=Type-Params>
 Maintainer:   Toby Inkster <mailto:tobyink@cpan.org>
 
+0.000_04  2013-04-26
+
+ - (Addition) Benchmarking script now also compares with Data::Validator.
+ - Include some trickery in Makefile.PL to pull in the latest dev release
+   for Type-Tiny, providing better CPAN testers reports.
+
 0.000_03  2013-04-18
 
  - use Exporter::TypeTiny for exporting functions.

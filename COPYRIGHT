@@ -12,6 +12,14 @@ Files: CONTRIBUTING
  Makefile.PL
  README
  examples/benchmarks.pl
+ inc/Test/TypeTiny.pm
+ inc/Type/Coercion/Union.pm
+ inc/Type/Tiny/Class.pm
+ inc/Type/Tiny/Duck.pm
+ inc/Type/Tiny/Enum.pm
+ inc/Type/Tiny/Intersection.pm
+ inc/Type/Tiny/Role.pm
+ inc/Type/Tiny/Union.pm
  meta/changes.pret
  meta/doap.pret
  meta/makefile.pret
@@ -19,7 +27,15 @@ Files: CONTRIBUTING
 Copyright: Unknown
 License: Unknown
 
-Files: lib/Type/Params.pm
+Files: inc/Exporter/TypeTiny.pm
+ inc/Type/Coercion.pm
+ inc/Type/Library.pm
+ inc/Type/Tiny.pm
+ inc/Type/Utils.pm
+ inc/Types/Standard.pm
+ inc/Types/Standard/AutomaticCoercion.pm
+ inc/Types/TypeTiny.pm
+ lib/Type/Params.pm
  t/01basic.t
  t/02positional.t
 Copyright: This software is copyright (c) 2013 by Toby Inkster.
