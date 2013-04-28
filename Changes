@@ -6,6 +6,14 @@ Home page:    <https://metacpan.org/release/Type-Params>
 Bug tracker:  <http://rt.cpan.org/Dist/Display.html?Queue=Type-Params>
 Maintainer:   Toby Inkster <mailto:tobyink@cpan.org>
 
+0.000_05  2013-04-26
+
+ - (Addition) Added an 'Invocant' type constraint.
+ - (Addition) Benchmarking script now also compares with Params::Check.
+ - (Bugfix) Fixed validation of slurpy hash lengths.
+ - (Documentation) Minor corrections.
+ - (Packaging) Bigger, better test suite.
+
 0.000_04  2013-04-26
 
  - (Addition) Benchmarking script now also compares with Data::Validator.

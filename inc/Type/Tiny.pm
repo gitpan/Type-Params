@@ -7,11 +7,11 @@ use warnings;
 
 BEGIN {
 	$Type::Tiny::AUTHORITY = 'cpan:TOBYINK';
-	$Type::Tiny::VERSION   = '0.003_07';
+	$Type::Tiny::VERSION   = '0.003_09';
 }
 
 use Scalar::Util qw< blessed weaken refaddr isweak >;
-use Types::TypeTiny qw< StringLike CodeLike TypeTiny to_TypeTiny >;
+use Types::TypeTiny ();
 
 sub _croak ($;@)
 {
@@ -62,7 +62,7 @@ sub new
 	
 	if (exists $params{parent})
 	{
-		$params{parent} = to_TypeTiny($params{parent});
+		$params{parent} = Types::TypeTiny::to_TypeTiny($params{parent});
 		
 		_croak "parent must be an instance of %s", __PACKAGE__
 			unless blessed($params{parent}) && $params{parent}->isa(__PACKAGE__);
@@ -192,6 +192,23 @@ sub _build_compiled_check
 		return $self->parent->compiled_check;
 	}
 	
+	if ($INC{'Mouse/Util.pm'} and Mouse::Util::MOUSE_XS())
+	{
+		require Mouse::Util::TypeConstraints;
+		
+		if ($self->{_is_core})
+		{
+			my $xs = "Mouse::Util::TypeConstraints"->can($self->name);
+			return $xs if $xs;
+		}
+		elsif ($self->is_parameterized and $self->has_parent
+		and $self->parent->{_is_core} and $self->parent->name =~ /^(ArrayRef|HashRef|Maybe)$/)
+		{
+			my $xs = "Mouse::Util::TypeConstraints"->can("_parameterize_".$self->parent->name."_for");
+			return $xs->($self->parameters->[0]) if $xs;
+		}
+	}
+	
 	if ($self->can_be_inlined)
 	{
 		local $@;
@@ -221,7 +238,7 @@ sub _build_compiled_check
 
 sub equals
 {
-	my ($self, $other) = map to_TypeTiny($_), @_;
+	my ($self, $other) = map Types::TypeTiny::to_TypeTiny($_), @_;
 	return unless blessed($self)  && $self->isa("Type::Tiny");
 	return unless blessed($other) && $other->isa("Type::Tiny");
 	
@@ -243,7 +260,7 @@ sub equals
 
 sub is_subtype_of
 {
-	my ($self, $other) = map to_TypeTiny($_), @_;
+	my ($self, $other) = map Types::TypeTiny::to_TypeTiny($_), @_;
 	return unless blessed($self)  && $self->isa("Type::Tiny");
 	return unless blessed($other) && $other->isa("Type::Tiny");
 
@@ -258,7 +275,7 @@ sub is_subtype_of
 
 sub is_supertype_of
 {
-	my ($self, $other) = map to_TypeTiny($_), @_;
+	my ($self, $other) = map Types::TypeTiny::to_TypeTiny($_), @_;
 	return unless blessed($self)  && $self->isa("Type::Tiny");
 	return unless blessed($other) && $other->isa("Type::Tiny");
 	
@@ -267,7 +284,7 @@ sub is_supertype_of
 
 sub is_a_type_of
 {
-	my ($self, $other) = map to_TypeTiny($_), @_;
+	my ($self, $other) = map Types::TypeTiny::to_TypeTiny($_), @_;
 	return unless blessed($self)  && $self->isa("Type::Tiny");
 	return unless blessed($other) && $other->isa("Type::Tiny");
 	
@@ -405,15 +422,15 @@ sub parameterize
 	$self->is_parameterizable
 		or _croak "type '%s' does not accept parameters", "$self";
 	
-	@_ = map to_TypeTiny($_), @_;
+	@_ = map Types::TypeTiny::to_TypeTiny($_), @_;
 	
 	# Generate a key for caching parameterized type constraints,
 	# but only if all the parameters are strings or type constraints.
 	my $key;
-	unless (grep(ref($_) && !TypeTiny->check($_), @_))
+	unless (grep(ref($_) && !Types::TypeTiny::TypeTiny->check($_), @_))
 	{
 		require B;
-		$key = join ":", map(TypeTiny->check($_) ? $_->{uniq} : B::perlstring($_), $self, @_);
+		$key = join ":", map(Types::TypeTiny::TypeTiny->check($_) ? $_->{uniq} : B::perlstring($_), $self, @_);
 	}
 	
 	return $param_cache{$key} if defined $key && defined $param_cache{$key};

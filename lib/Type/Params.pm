@@ -6,17 +6,21 @@ use warnings;
 
 BEGIN {
 	$Type::Params::AUTHORITY = 'cpan:TOBYINK';
-	$Type::Params::VERSION   = '0.000_04';
+	$Type::Params::VERSION   = '0.000_05';
 }
 
 use Carp qw(croak);
 use Eval::Closure qw();
 use Scalar::Util qw(refaddr);
 use Types::Standard -types;
+use Type::Utils;
 use Types::TypeTiny qw(to_TypeTiny);
 
-our @EXPORT = qw( compile validate );
+our @EXPORT = qw( compile );
+our @EXPORT_OK = qw( validate Invocant );
 use base qw< Exporter::TypeTiny >;
+
+use constant Invocant => union Invocant => [Object, ClassName];
 
 sub _mkslurpy
 {
@@ -28,10 +32,11 @@ sub _mkslurpy
 			$i,
 		)
 		: sprintf(
-			'%s = $#_-%d==0 ? $croaker->("Odd number of elements in %s") : +{ @_[%d..$#_] };',
+			'%s = (($#_-%d)%%2)==0 ? $croaker->("Odd number of elements in %s") : +{ @_[%d..$#_] };',
 			$name,
 			$i,
 			$tc,
+			$i,
 			$i,
 		);
 }
@@ -57,11 +62,11 @@ sub compile
 		{
 			$constraint = to_TypeTiny($constraint->{slurpy});
 			push @code,
-				$constraint->is_a_type_of(HashRef)  ? _mkslurpy('$_', '%', HashRef  => $arg) :
 				$constraint->is_a_type_of(Dict)     ? _mkslurpy('$_', '%', Dict     => $arg) :
 				$constraint->is_a_type_of(Map)      ? _mkslurpy('$_', '%', Map      => $arg) :
-				$constraint->is_a_type_of(ArrayRef) ? _mkslurpy('$_', '@', ArrayRef => $arg) :
 				$constraint->is_a_type_of(Tuple)    ? _mkslurpy('$_', '@', Tuple    => $arg) :
+				$constraint->is_a_type_of(HashRef)  ? _mkslurpy('$_', '%', HashRef  => $arg) :
+				$constraint->is_a_type_of(ArrayRef) ? _mkslurpy('$_', '@', ArrayRef => $arg) :
 				croak("Slurpy parameter not of type HashRef or ArrayRef");
 			$varname = '$_';
 		}
@@ -237,6 +242,8 @@ Dude, these functions are documented!
 
 =item validate
 
+=item Invocant
+
 =end trustme
 
 =head1 COOKBOOK
@@ -253,7 +260,11 @@ Dude, these functions are documented!
 
 =head2 Method Calls
 
+Type::Params exports an additional keyword C<Invocant> on request. This is
+a type constraint accepting blessed objects and also class names.
+
    use Types::Standard qw( ClassName Object Str Int );
+   use Type::Params qw( compile Invocant );
    
    # a class method
    sub new_from_json
@@ -274,10 +285,10 @@ Dude, these functions are documented!
       print Data::Dumper::Dumper($self);
    }
    
-   # can be called as either
+   # can be called as either and object or class method
    sub run
    {
-      state $check = compile( Object | ClassName );
+      state $check = compile( Invocant );
       my ($proto) = $check->(@_);
       
       my $self = ref($proto) ? $proto : $default_instance;
@@ -373,7 +384,7 @@ a coercion associated.
    use Types::Standard qw( Int Num );
    
    my $RoundedInt = declare as Int;
-   coerce $RoundedInt, from Num, via q{ int($_) };
+   coerce $RoundedInt, from Num, q{ int($_) };
    
    sub set_age
    {

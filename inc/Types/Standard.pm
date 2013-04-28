@@ -6,7 +6,7 @@ use warnings;
 
 BEGIN {
 	$Types::Standard::AUTHORITY = 'cpan:TOBYINK';
-	$Types::Standard::VERSION   = '0.003_07';
+	$Types::Standard::VERSION   = '0.003_09';
 }
 
 use base "Type::Library";
@@ -97,7 +97,6 @@ declare "ClassName",
 	inline_as { "Types::Standard::_is_class_loaded($_)" };
 
 declare "RoleName",
-	_is_core => 1,
 	as "ClassName",
 	where { not $_->can("new") },
 	inline_as { "Types::Standard::_is_class_loaded($_) and not $_->can('new')" };
@@ -490,7 +489,7 @@ declare "Overload",
 	constraint_generator => sub
 	{
 		my @operations = map {
-			Type::Tiny::StringLike->check($_)
+			Types::TypeTiny::StringLike->check($_)
 				? "$_"
 				: _croak("Parameters to Overload[`a] expected to be a strings; got $_");
 		} @_;
@@ -524,8 +523,8 @@ declare "StrMatch",
 
 		if (@_ > 1)
 		{
-			$checker = Type::Tiny::to_TypeTiny($checker);
-			Type::Tiny::TypeTiny->check($checker)
+			$checker = Types::TypeTiny::to_TypeTiny($checker);
+			Types::TypeTiny::TypeTiny->check($checker)
 				or _croak("Second parameter to StrMatch[`a] expected to be a type constraint; got $checker")
 		}
 
@@ -579,10 +578,11 @@ declare "Bytes",
 	where { !utf8::is_utf8($_) },
 	inline_as { "!utf8::is_utf8($_)" };
 
+our $SevenBitSafe = qr{^[\x00-\x7F]*$}sm;
 declare "Chars",
 	as "Str",
-	where { utf8::is_utf8($_) },
-	inline_as { "utf8::is_utf8($_)" };
+	where { utf8::is_utf8($_) or $_ =~ $Types::Standard::SevenBitSafe },
+	inline_as { "utf8::is_utf8($_) or $_ =~ \$Types::Standard::SevenBitSafe" };
 
 declare "OptList",
 	as ArrayRef( [ArrayRef()] ),
@@ -606,6 +606,67 @@ declare "OptList",
 			$self->parent->inline_check($var),
 			join(" ", @code),
 		);
+	};
+
+declare "Tied",
+	as "Ref",
+	where {
+		!!tied(Scalar::Util::reftype($_) eq 'HASH' ?  %{$_} : Scalar::Util::reftype($_) eq 'ARRAY' ?  @{$_} :  ${$_})
+	}
+	inline_as {
+		my $self = shift;
+		$self->parent->inline_check(@_)
+		. " and !!tied(Scalar::Util::reftype($_) eq 'HASH' ? \%{$_} : Scalar::Util::reftype($_) eq 'ARRAY' ? \@{$_} : \${$_})"
+	}
+	name_generator => sub
+	{
+		my $self  = shift;
+		my $param = Types::TypeTiny::to_TypeTiny(shift);
+		unless (Types::TypeTiny::TypeTiny->check($param))
+		{
+			Types::TypeTiny::StringLike->check($param)
+				or _croak("Parameter to Tied[`a] expected to be a class name; got $param");
+			require B;
+			return sprintf("%s[%s]", $self, B::perlstring($param));
+		}
+		return sprintf("%s[%s]", $self, $param);
+	},
+	constraint_generator => sub
+	{
+		my $param = Types::TypeTiny::to_TypeTiny(shift);
+		unless (Types::TypeTiny::TypeTiny->check($param))
+		{
+			Types::TypeTiny::StringLike->check($param)
+				or _croak("Parameter to Tied[`a] expected to be a class name; got $param");
+			require Type::Tiny::Class;
+			$param = "Type::Tiny::Class"->new(class => "$param");
+		}
+		
+		my $check = $param->compiled_check;
+		return sub {
+			$check->(tied(Scalar::Util::reftype($_) eq 'HASH' ?  %{$_} : Scalar::Util::reftype($_) eq 'ARRAY' ?  @{$_} :  ${$_}));
+		};
+	},
+	inline_generator => sub {
+		my $param = Types::TypeTiny::to_TypeTiny(shift);
+		unless (Types::TypeTiny::TypeTiny->check($param))
+		{
+			Types::TypeTiny::StringLike->check($param)
+				or _croak("Parameter to Tied[`a] expected to be a class name; got $param");
+			require Type::Tiny::Class;
+			$param = "Type::Tiny::Class"->new(class => "$param");
+		}
+		return unless $param->can_be_inlined;
+		
+		return sub {
+			require B;
+			my $var = $_[1];
+			sprintf(
+				"%s and do { my \$TIED = tied(Scalar::Util::reftype($var) eq 'HASH' ? \%{$var} : Scalar::Util::reftype($var) eq 'ARRAY' ? \@{$var} : \${$var}); %s }",
+				Ref()->inline_check($var),
+				$param->inline_check('$TIED')
+			);
+		};
 	};
 
 declare_coercion "MkOpt",

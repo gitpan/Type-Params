@@ -49,4 +49,10 @@ meta/people.pret
 README
 t/01basic.t
 t/02positional.t
+t/03methods.t
+t/04optional.t
+t/05slurpy.t
+t/06named.t
+t/07mixednamed.t
+t/08coerce.t
 SIGNATURE                                Public-key signature (added by MakeMaker)
